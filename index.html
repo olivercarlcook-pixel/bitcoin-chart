@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Live Chart</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #1e3c72;
+            font-size: 32px;
+            margin-bottom: 15px;
+        }
+        
+        .price-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .price-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 5px solid #f7931a;
+            transition: transform 0.2s;
+        }
+        
+        .price-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .price-card label {
+            font-size: 13px;
+            color: #666;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        .price-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e3c72;
+            margin-top: 8px;
+        }
+        
+        .positive {
+            color: #10b981 !important;
+        }
+        
+        .negative {
+            color: #ef4444 !important;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-primary {
+            background: #f7931a;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #e8820a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(247, 147, 26, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        
+        .btn-secondary.active {
+            background: #1e3c72;
+            color: white;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.live {
+            background: #10b981;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status.loading {
+            background: #fbbf24;
+            color: white;
+        }
+        
+        .status.error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 500px;
+            border-radius: 8px;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            font-size: 13px;
+            margin-top: 20px;
+            opacity: 0.9;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 768px) {
+            canvas {
+                height: 350px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .price-card .value {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <h1>Bitcoin Live Chart <span class="status loading" id="status">● LOADING</span></h1>
+                <div style="font-size: 14px; color: #666;" id="lastUpdate">Initializing...</div>
+            </div>
+            
+            <div class="price-info">
+                <div class="price-card">
+                    <label>Current Price</label>
+                    <div class="value" id="currentPrice">Loading...</div>
+                </div>
+                <div class="price-card">
+                    <label>24h Change</label>
+                    <div class="value" id="priceChange">Loading...</div>
+                </div>
+                <div class="price-card">
+                    <label>24h High</label>
+                    <div class="value" id="high24h">Loading...</div>
+                </div>
+                <div class="price-card">
+                    <label>24h Low</label>
+                    <div class="value" id="low24h">Loading...</div>
+                </div>
+                <div class="price-card">
+                    <label>24h Volume</label>
+                    <div class="value" id="volume24h">Loading...</div>
+                </div>
+            </div>
+            
+            <div id="errorContainer"></div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="controls">
+                <button class="btn btn-secondary active" onclick="changeTimeframe('1m')" id="btn-1m">1 Minute</button>
+                <button class="btn btn-secondary" onclick="changeTimeframe('5m')" id="btn-5m">5 Minutes</button>
+                <button class="btn btn-secondary" onclick="changeTimeframe('15m')" id="btn-15m">15 Minutes</button>
+                <button class="btn btn-secondary" onclick="changeTimeframe('1h')" id="btn-1h">1 Hour</button>
+                <button class="btn btn-secondary" onclick="changeTimeframe('4h')" id="btn-4h">4 Hours</button>
+                <button class="btn btn-primary" onclick="refreshData()">🔄 Refresh Now</button>
+            </div>
+            
+            <canvas id="candlestickChart"></canvas>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Data from Binance API</strong> • Updates every 10 seconds</p>
+            <p style="margin-top: 5px;">Professional candlestick chart with live price data</p>
+        </div>
+    </div>
+
+    <script>
+        let canvas, ctx;
+        let currentTimeframe = '1m';
+        let updateInterval;
+        let chartData = [];
+        let priceRange = { min: 0, max: 0 };
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            console.log('Page loaded, initializing...');
+            canvas = document.getElementById('candlestickChart');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Start fetching data
+            fetchData();
+            startAutoUpdate();
+        });
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth - 50;
+            canvas.height = 500;
+            if (chartData.length > 0) {
+                drawChart();
+            }
+        }
+        
+        async function fetchData() {
+            console.log('Fetching data for timeframe:', currentTimeframe);
+            
+            try {
+                updateStatus('loading', 'Fetching data...');
+                
+                // Using CORS proxy to bypass browser restrictions
+                const corsProxy = 'https://api.allorigins.win/raw?url=';
+                
+                // Fetch candlestick data
+                const candleUrl = `${corsProxy}https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${currentTimeframe}&limit=100`;
+                console.log('Fetching candles from:', candleUrl);
+                
+                const candleResponse = await fetch(candleUrl);
+                if (!candleResponse.ok) {
+                    throw new Error(`Candle API returned ${candleResponse.status}`);
+                }
+                const candleDataRaw = await candleResponse.json();
+                console.log('Received', candleDataRaw.length, 'candles');
+                
+                // Fetch 24h stats
+                const statsUrl = `${corsProxy}https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT`;
+                console.log('Fetching stats from:', statsUrl);
+                
+                const statsResponse = await fetch(statsUrl);
+                if (!statsResponse.ok) {
+                    throw new Error(`Stats API returned ${statsResponse.status}`);
+                }
+                const stats = await statsResponse.json();
+                console.log('Received stats:', stats);
+                
+                // Process data
+                chartData = candleDataRaw.map(candle => ({
+                    time: candle[0],
+                    open: parseFloat(candle[1]),
+                    high: parseFloat(candle[2]),
+                    low: parseFloat(candle[3]),
+                    close: parseFloat(candle[4]),
+                    volume: parseFloat(candle[5])
+                }));
+                
+                // Calculate price range
+                priceRange.min = Math.min(...chartData.map(c => c.low));
+                priceRange.max = Math.max(...chartData.map(c => c.high));
+                
+                // Update UI
+                updatePriceInfo(stats);
+                drawChart();
+                updateStatus('live', 'Live • Last update: ' + new Date().toLocaleTimeString());
+                clearError();
+                
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                updateStatus('error', 'Error loading data');
+                showError('Failed to fetch data: ' + error.message + '. Check console for details.');
+            }
+        }
+        
+        function updatePriceInfo(stats) {
+            const currentPrice = parseFloat(stats.lastPrice);
+            const priceChange = parseFloat(stats.priceChangePercent);
+            const high = parseFloat(stats.highPrice);
+            const low = parseFloat(stats.lowPrice);
+            const volume = parseFloat(stats.volume);
+            
+            document.getElementById('currentPrice').textContent = '$' + currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            const changeElement = document.getElementById('priceChange');
+            changeElement.textContent = (priceChange >= 0 ? '+' : '') + priceChange.toFixed(2) + '%';
+            changeElement.className = 'value ' + (priceChange >= 0 ? 'positive' : 'negative');
+            
+            document.getElementById('high24h').textContent = '$' + high.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('low24h').textContent = '$' + low.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('volume24h').textContent = volume.toLocaleString('en-US', {maximumFractionDigits: 0}) + ' BTC';
+        }
+        
+        function drawChart() {
+            if (!ctx || chartData.length === 0) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const padding = 60;
+            const chartWidth = canvas.width - padding * 2;
+            const chartHeight = canvas.height - padding * 2;
+            const candleWidth = Math.max(2, chartWidth / chartData.length - 2);
+            
+            // Draw background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const y = padding + (chartHeight / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+            
+            // Draw price labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 10; i++) {
+                const price = priceRange.max - (priceRange.max - priceRange.min) * (i / 10);
+                const y = padding + (chartHeight / 10) * i;
+                ctx.fillText('$' + price.toLocaleString('en-US', {maximumFractionDigits: 0}), padding - 10, y + 4);
+            }
+            
+            // Draw candles
+            chartData.forEach((candle, index) => {
+                const x = padding + (chartWidth / chartData.length) * index + candleWidth / 2;
+                
+                const openY = padding + chartHeight - ((candle.open - priceRange.min) / (priceRange.max - priceRange.min)) * chartHeight;
+                const closeY = padding + chartHeight - ((candle.close - priceRange.min) / (priceRange.max - priceRange.min)) * chartHeight;
+                const highY = padding + chartHeight - ((candle.high - priceRange.min) / (priceRange.max - priceRange.min)) * chartHeight;
+                const lowY = padding + chartHeight - ((candle.low - priceRange.min) / (priceRange.max - priceRange.min)) * chartHeight;
+                
+                const isGreen = candle.close >= candle.open;
+                ctx.strokeStyle = isGreen ? '#10b981' : '#ef4444';
+                ctx.fillStyle = isGreen ? '#10b981' : '#ef4444';
+                
+                // Draw wick
+                ctx.beginPath();
+                ctx.moveTo(x, highY);
+                ctx.lineTo(x, lowY);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Draw body
+                const bodyTop = Math.min(openY, closeY);
+                const bodyHeight = Math.abs(closeY - openY) || 1;
+                ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+            });
+        }
+        
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            const updateEl = document.getElementById('lastUpdate');
+            
+            statusEl.className = 'status ' + type;
+            if (type === 'live') {
+                statusEl.textContent = '● LIVE';
+            } else if (type === 'loading') {
+                statusEl.textContent = '● LOADING';
+            } else if (type === 'error') {
+                statusEl.textContent = '● ERROR';
+            }
+            
+            updateEl.textContent = message;
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('errorContainer');
+            container.innerHTML = `<div class="error-message">⚠️ ${message}</div>`;
+        }
+        
+        function clearError() {
+            document.getElementById('errorContainer').innerHTML = '';
+        }
+        
+        function changeTimeframe(timeframe) {
+            currentTimeframe = timeframe;
+            
+            // Update button states
+            document.querySelectorAll('.btn-secondary').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById('btn-' + timeframe).classList.add('active');
+            
+            // Fetch new data
+            fetchData();
+        }
+        
+        function refreshData() {
+            fetchData();
+        }
+        
+        function startAutoUpdate() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+            
+            updateInterval = setInterval(() => {
+                console.log('Auto-updating...');
+                fetchData();
+            }, 10000);
+        }
+        
+        window.addEventListener('beforeunload', function() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        });
+    </script>
+</body>
+</html>
